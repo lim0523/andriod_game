@@ -1,0 +1,474 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_dark"
+    android:fitsSystemWindows="true">
+    <com.example.exam.SnakeGameView
+        android:id="@+id/game_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- 顶部信息栏 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="16dp"
+        android:background="@drawable/bg_header_gradient">
+
+        <TextView
+            android:id="@+id/tv_score"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="@color/neon_green"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_timer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:layout_marginEnd="16dp" />
+
+        <ImageView
+            android:id="@+id/btn_pause"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:src="@android:drawable/ic_media_pause"
+            android:contentDescription="暂停" />
+    </LinearLayout>
+
+    <!-- 暂停面板 -->
+    <LinearLayout
+        android:id="@+id/pause_panel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@color/overlay"
+        android:visibility="gone">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/paused"
+            android:textColor="@color/white"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="32dp" />
+
+        <Button
+            android:id="@+id/btn_resume"
+            android:layout_width="220dp"
+            android:layout_height="54dp"
+            android:text="@string/resume"
+            android:textColor="@color/bg_dark"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.1"
+            app:backgroundTint="@null"
+            android:background="@drawable/bg_btn_gradient"
+            app:cornerRadius="24dp"
+            android:stateListAnimator="@null" />
+
+        <Button
+            android:id="@+id/btn_restart_pause"
+            android:layout_width="220dp"
+            android:layout_height="50dp"
+            android:text="@string/restart"
+            android:textColor="@color/neon_green"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.1"
+            app:backgroundTint="@null"
+            android:background="@drawable/bg_btn_outline"
+            app:cornerRadius="24dp"
+            android:stateListAnimator="@null"
+            android:layout_marginTop="10dp" />
+
+        <Button
+            android:id="@+id/btn_home_pause"
+            android:layout_width="220dp"
+            android:layout_height="50dp"
+            android:text="@string/back_home"
+            android:textColor="@color/neon_blue"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.1"
+            app:backgroundTint="@null"
+            android:background="@drawable/bg_btn_outline_blue"
+            app:cornerRadius="24dp"
+            android:stateListAnimator="@null"
+            android:layout_marginTop="10dp" />
+    </LinearLayout>
+
+    <!-- 结算面板 -->
+    <LinearLayout
+        android:id="@+id/game_over_panel"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="@color/overlay"
+        android:visibility="gone"
+        android:padding="32dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/game_over"
+            android:textColor="@color/neon_pink"
+            android:textSize="28sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_final_score"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/neon_green"
+            android:textSize="48sp"
+            android:textStyle="bold"
+            android:layout_marginTop="8dp" />
+
+        <TextView
+            android:id="@+id/tv_new_record"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/new_record"
+            android:textColor="@color/gold"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="24dp">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/bg_card_gradient"
+                android:padding="12dp"
+                android:layout_margin="4dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/snake_length"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+                <TextView
+                    android:id="@+id/tv_final_length"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/white"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/bg_card_gradient"
+                android:padding="12dp"
+                android:layout_margin="4dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/food_eaten"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+                <TextView
+                    android:id="@+id/tv_final_food"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/white"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/bg_card_gradient"
+                android:padding="12dp"
+                android:layout_margin="4dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/time_used"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+                <TextView
+                    android:id="@+id/tv_final_time"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/white"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tv_achievement_unlock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/neon_green"
+            android:textSize="14sp"
+            android:visibility="gone"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btn_play_again"
+            android:layout_width="220dp"
+            android:layout_height="54dp"
+            android:text="@string/play_again"
+            android:textColor="@color/bg_dark"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.1"
+            app:backgroundTint="@null"
+            android:background="@drawable/bg_btn_gradient"
+            app:cornerRadius="24dp"
+            android:stateListAnimator="@null" />
+
+        <Button
+            android:id="@+id/btn_home_over"
+            android:layout_width="220dp"
+            android:layout_height="50dp"
+            android:text="@string/back_home"
+            android:textColor="@color/neon_blue"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.1"
+            app:backgroundTint="@null"
+            android:background="@drawable/bg_btn_outline_blue"
+            app:cornerRadius="24dp"
+            android:stateListAnimator="@null"
+            android:layout_marginTop="10dp" />
+    </LinearLayout>
+
+    <!-- 虚拟方向键 - 圆盘式 -->
+    <FrameLayout
+        android:id="@+id/dpad_container"
+        android:layout_width="160dp"
+        android:layout_height="160dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:visibility="gone"
+        android:paddingBottom="20dp">
+
+        <View
+            android:layout_width="140dp"
+            android:layout_height="140dp"
+            android:layout_gravity="center"
+            android:background="@drawable/bg_dpad_base" />
+
+        <Button
+            android:id="@+id/btn_up"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_gravity="center_horizontal|top"
+            android:layout_marginTop="6dp"
+            android:text="\u25B2"
+            android:textColor="@color/bg_dark"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null"
+            android:background="@drawable/bg_dpad_button"
+            android:stateListAnimator="@null"
+            android:padding="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp" />
+
+        <Button
+            android:id="@+id/btn_down"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_gravity="center_horizontal|bottom"
+            android:layout_marginBottom="6dp"
+            android:text="\u25BC"
+            android:textColor="@color/bg_dark"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null"
+            android:background="@drawable/bg_dpad_button"
+            android:stateListAnimator="@null"
+            android:padding="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp" />
+
+        <Button
+            android:id="@+id/btn_left"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_gravity="left|center_vertical"
+            android:layout_marginLeft="6dp"
+            android:text="\u25C0"
+            android:textColor="@color/bg_dark"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null"
+            android:background="@drawable/bg_dpad_button"
+            android:stateListAnimator="@null"
+            android:padding="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp" />
+
+        <Button
+            android:id="@+id/btn_right"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_gravity="right|center_vertical"
+            android:layout_marginRight="6dp"
+            android:text="\u25B6"
+            android:textColor="@color/bg_dark"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null"
+            android:background="@drawable/bg_dpad_button"
+            android:stateListAnimator="@null"
+            android:padding="0dp"
+            android:minWidth="0dp"
+            android:minHeight="0dp" />
+    </FrameLayout>
+
+    <!-- 手势模式: 摄像头预览小窗（缩小+半透明，减少遮挡） -->
+    <LinearLayout
+        android:id="@+id/camera_container"
+        android:layout_width="90dp"
+        android:layout_height="120dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="60dp"
+        android:layout_marginEnd="8dp"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="100dp">
+
+            <androidx.camera.view.PreviewView
+                android:id="@+id/preview_view"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="#80000000" />
+
+            <com.example.exam.CameraOverlayView
+                android:id="@+id/camera_overlay"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent" />
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/tv_gesture_status"
+            android:layout_width="match_parent"
+            android:layout_height="18dp"
+            android:gravity="center"
+            android:text="等待手势..."
+            android:textColor="@color/text_dim"
+            android:textSize="9sp"
+            android:background="#80000000" />
+    </LinearLayout>
+
+    <!-- 手势模式: 方向指示器 -->
+    <LinearLayout
+        android:id="@+id/direction_indicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone"
+        android:paddingBottom="32dp"
+        android:paddingLeft="24dp">
+
+        <TextView
+            android:id="@+id/arrow_up"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:gravity="center"
+            android:text="\u25B2"
+            android:textColor="#33FFFFFF"
+            android:textSize="22sp"
+            android:shadowColor="@color/neon_green"
+            android:shadowRadius="0" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <TextView
+                android:id="@+id/arrow_left"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:gravity="center"
+                android:text="\u25C0"
+                android:textColor="#33FFFFFF"
+                android:textSize="22sp"
+                android:shadowColor="@color/neon_green"
+                android:shadowRadius="0" />
+
+            <View
+                android:layout_width="36dp"
+                android:layout_height="36dp" />
+
+            <TextView
+                android:id="@+id/arrow_right"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:gravity="center"
+                android:text="\u25B6"
+                android:textColor="#33FFFFFF"
+                android:textSize="22sp"
+                android:shadowColor="@color/neon_green"
+                android:shadowRadius="0" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/arrow_down"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:gravity="center"
+            android:text="\u25BC"
+            android:textColor="#33FFFFFF"
+            android:textSize="22sp"
+            android:shadowColor="@color/neon_green"
+            android:shadowRadius="0" />
+    </LinearLayout>
+
+    <!-- 倒计时 -->
+    <TextView
+        android:id="@+id/tv_countdown"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:textColor="@color/neon_green"
+        android:textSize="72sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+</FrameLayout>

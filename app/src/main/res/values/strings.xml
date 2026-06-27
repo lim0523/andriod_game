@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">霓虹贪吃蛇</string>
+    <string name="start_game">开始游戏</string>
+    <string name="skin_theme">皮肤主题</string>
+    <string name="leaderboard">排行榜</string>
+    <string name="achievements">成就</string>
+    <string name="settings">设置</string>
+    <string name="classic_mode">经典模式</string>
+    <string name="challenge_mode">挑战模式</string>
+    <string name="resume">继续</string>
+    <string name="restart">重新开始</string>
+    <string name="back_home">返回主页</string>
+    <string name="game_over">游戏结束</string>
+    <string name="new_record">新纪录!</string>
+    <string name="play_again">再来一局</string>
+    <string name="score">得分</string>
+    <string name="snake_length">蛇身</string>
+    <string name="food_eaten">食物</string>
+    <string name="time_used">用时</string>
+    <string name="best_score">最高分</string>
+    <string name="paused">已暂停</string>
+    <string name="select_mode">选择游戏模式</string>
+    <string name="cancel">取消</string>
+    <string name="endless">无尽</string>
+    <string name="timed_60s">限时60秒</string>
+    <string name="faster">越来越快</string>
+    <string name="sprint">限时冲刺</string>
+</resources>

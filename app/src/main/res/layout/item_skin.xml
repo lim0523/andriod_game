@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="80dp"
+    android:layout_height="100dp"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="@drawable/bg_card_gradient"
+    android:padding="8dp"
+    android:layout_margin="4dp"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?android:attr/selectableItemBackground">
+
+    <View
+        android:id="@+id/color_preview"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:background="@color/neon_green" />
+
+    <TextView
+        android:id="@+id/tv_skin_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="经典绿"
+        android:textColor="@color/white"
+        android:textSize="12sp"
+        android:layout_marginTop="4dp" />
+
+    <TextView
+        android:id="@+id/tv_skin_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="✓"
+        android:textColor="@color/neon_green"
+        android:textSize="12sp" />
+</LinearLayout>
