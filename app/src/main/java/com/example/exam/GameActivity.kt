@@ -38,11 +38,25 @@ class GameActivity : AppCompatActivity() {
     private var gestureHelper: GestureRecognizerHelper? = null
     private val cameraExecutor = Executors.newSingleThreadExecutor()
     private var cameraStarted = false
-    // 手势摇杆模式：当前方向（null = 停止）
+    private var cameraProvider: ProcessCameraProvider? = null
+    private var isFrontCamera = true
+    private var gestureControlEnabled = true
+    // 手势目标追随模式：当前方向（null = 停止）
     private var currentGestureDirection: Direction? = null
+    private var lastStableDirection: Direction? = null
+    private var lastTrackingTime = 0L
     // 手部位置平滑缓冲：取最近 5 帧平均，减少抖动导致的目标跳变
     private val handBuffer = mutableListOf<Pair<Float, Float>>()
     private val HAND_BUFFER_SIZE = 5
+    private val HAND_LOST_GRACE_MS = 500L
+    private val DIRECTION_AXIS_MARGIN = 1
+    private val CALIBRATION_MS = 1200L
+    private var calibrationStartedAt = 0L
+    private var calibrationDone = false
+    private var calibrationMinX = 1f
+    private var calibrationMaxX = 0f
+    private var calibrationMinY = 1f
+    private var calibrationMaxY = 0f
 
     private val requestCameraPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -50,8 +64,7 @@ class GameActivity : AppCompatActivity() {
         if (granted) {
             startCamera()
         } else {
-            Toast.makeText(this, "需要摄像头权限才能使用手势操控", Toast.LENGTH_LONG).show()
-            finish()
+            enableManualFallback("未授予摄像头权限，已切换为手动控制")
         }
     }
 
@@ -71,6 +84,7 @@ class GameActivity : AppCompatActivity() {
             binding.cameraContainer.visibility = View.VISIBLE
             binding.directionIndicator.visibility = View.VISIBLE
             setupGestureHelper()
+            setupCameraSwitch()
             checkCameraPermission()
         }
 
@@ -93,27 +107,92 @@ class GameActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupCameraSwitch() {
+        binding.cameraContainer.setOnClickListener {
+            if (gestureControlEnabled && cameraStarted) switchCamera()
+        }
+    }
+
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener({
             try {
-                val cameraProvider = cameraProviderFuture.get()
-                val preview = Preview.Builder().build().also {
-                    it.setSurfaceProvider(binding.previewView.surfaceProvider)
-                }
-                val imageAnalysis = ImageAnalysis.Builder()
-                    .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    .build()
-                    .also { it.setAnalyzer(cameraExecutor, gestureHelper!!.analyzer) }
-
-                cameraProvider.unbindAll()
-                cameraProvider.bindToLifecycle(this, CameraSelector.DEFAULT_FRONT_CAMERA, preview, imageAnalysis)
+                val provider = cameraProviderFuture.get()
+                cameraProvider = provider
+                bindCamera(provider)
                 cameraStarted = true
             } catch (e: Exception) {
                 e.printStackTrace()
-                Toast.makeText(this, "摄像头启动失败: ${e.message}", Toast.LENGTH_LONG).show()
+                enableManualFallback("摄像头启动失败，已切换为手动控制")
             }
         }, ContextCompat.getMainExecutor(this))
+    }
+
+    private fun bindCamera(provider: ProcessCameraProvider) {
+        gestureHelper?.isFrontCamera = isFrontCamera
+        val selector = if (isFrontCamera) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
+        try {
+            val preview = Preview.Builder().build().also {
+                it.setSurfaceProvider(binding.previewView.surfaceProvider)
+            }
+            val imageAnalysis = ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                .build()
+                .also { it.setAnalyzer(cameraExecutor, gestureHelper!!.analyzer) }
+
+            provider.unbindAll()
+            provider.bindToLifecycle(this, selector, preview, imageAnalysis)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            if (!isFrontCamera) {
+                isFrontCamera = true
+                gestureHelper?.isFrontCamera = true
+                bindCamera(provider)
+                Toast.makeText(this, "后置摄像头不可用，已切回前置", Toast.LENGTH_SHORT).show()
+            } else {
+                enableManualFallback("摄像头不可用，已切换为手动控制")
+            }
+        }
+    }
+
+    private fun switchCamera() {
+        val provider = cameraProvider ?: return
+        isFrontCamera = !isFrontCamera
+        resetGestureTracking()
+        bindCamera(provider)
+        binding.tvGestureStatus.text = if (isFrontCamera) "已切换前置" else "已切换后置"
+        binding.tvGestureStatus.setTextColor(0xFF00D4FF.toInt())
+    }
+
+    private fun enableManualFallback(message: String) {
+        gestureControlEnabled = false
+        cameraStarted = false
+        cameraProvider?.unbindAll()
+        resetGestureTracking()
+        binding.cameraContainer.visibility = View.GONE
+        binding.directionIndicator.visibility = View.GONE
+        binding.dpadContainer.visibility = View.VISIBLE
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    }
+
+    private fun resetGestureTracking() {
+        handBuffer.clear()
+        currentGestureDirection = null
+        lastStableDirection = null
+        lastTrackingTime = 0L
+        resetCalibration()
+        binding.gameView.clearTarget()
+        binding.cameraOverlay.updateLandmarks(emptyList())
+        resetArrows()
+    }
+
+    private fun resetCalibration() {
+        calibrationStartedAt = 0L
+        calibrationDone = false
+        calibrationMinX = 1f
+        calibrationMaxX = 0f
+        calibrationMinY = 1f
+        calibrationMaxY = 0f
     }
 
     private fun handleGestureResult(result: GestureRecognizerHelper.Result) {
@@ -121,14 +200,32 @@ class GameActivity : AppCompatActivity() {
         binding.cameraOverlay.updateLandmarks(result.landmarks)
 
         // 游戏未运行或蛇未初始化时，不处理手势（防止崩溃）
-        if (!result.isTracking || engine.gameState != GameState.RUNNING || engine.snake.isEmpty()) {
+        if (engine.gameState != GameState.RUNNING || engine.snake.isEmpty()) {
             currentGestureDirection = null
             if (engine.snake.isEmpty()) binding.gameView.clearTarget()
-            binding.tvGestureStatus.text = if (!result.isTracking) "等待手势..." else "准备中..."
+            binding.tvGestureStatus.text = "准备中..."
             binding.tvGestureStatus.setTextColor(0xFF4A5568.toInt())
             resetArrows()
             return
         }
+
+        if (!result.isTracking) {
+            val now = System.currentTimeMillis()
+            if (lastStableDirection != null && now - lastTrackingTime <= HAND_LOST_GRACE_MS) {
+                currentGestureDirection = lastStableDirection
+                binding.tvGestureStatus.text = "短暂丢失..."
+                binding.tvGestureStatus.setTextColor(0xFFFFD700.toInt())
+            } else {
+                currentGestureDirection = null
+                binding.tvGestureStatus.text = "等待手势..."
+                binding.tvGestureStatus.setTextColor(0xFF4A5568.toInt())
+                binding.gameView.clearTarget()
+                resetArrows()
+            }
+            return
+        }
+
+        lastTrackingTime = System.currentTimeMillis()
 
         // === 位置映射核心逻辑 ===
         // 平滑处理：取最近 5 帧的平均位置，减少手部抖动导致的目标跳变
@@ -137,11 +234,10 @@ class GameActivity : AppCompatActivity() {
         val smoothX = handBuffer.map { it.first }.average().toFloat()
         val smoothY = handBuffer.map { it.second }.average().toFloat()
 
+        if (!updateCalibration(smoothX, smoothY)) return
+
         // 手在摄像头画面中的绝对位置 → 映射到棋盘坐标
-        // 留 15% 边距让用户不需手伸到画面极边缘就能触达棋盘边缘
-        val margin = 0.15f
-        val mappedX = ((smoothX - margin) / (1f - 2f * margin)).coerceIn(0f, 1f)
-        val mappedY = ((smoothY - margin) / (1f - 2f * margin)).coerceIn(0f, 1f)
+        val (mappedX, mappedY) = mapHandToBoard(smoothX, smoothY)
         val targetCol = (mappedX * engine.gridSize).toInt().coerceIn(0, engine.gridSize - 1)
         val targetRow = (mappedY * engine.gridSize).toInt().coerceIn(0, engine.gridSize - 1)
 
@@ -154,11 +250,7 @@ class GameActivity : AppCompatActivity() {
         val dy = targetRow - head.y
 
         // 到达目标 → 停止（精确到达，5帧平滑已防抖）
-        val desiredDir: Direction? = when {
-            dx == 0 && dy == 0 -> null  // 精确到达目标 → 停止
-            abs(dx) >= abs(dy) -> if (dx > 0) Direction.RIGHT else Direction.LEFT
-            else -> if (dy > 0) Direction.DOWN else Direction.UP
-        }
+        val desiredDir = chooseGestureDirection(dx, dy)
 
         // 防止 180° 掉头：如果期望方向与当前相反，选垂直轴转弯
         currentGestureDirection = if (desiredDir != null && isOppositeDirection(desiredDir, engine.direction)) {
@@ -169,6 +261,7 @@ class GameActivity : AppCompatActivity() {
         } else {
             desiredDir
         }
+        lastStableDirection = currentGestureDirection
 
         // 更新状态文字
         binding.tvGestureStatus.text = if (currentGestureDirection != null) {
@@ -190,6 +283,59 @@ class GameActivity : AppCompatActivity() {
                (a == Direction.DOWN && b == Direction.UP) ||
                (a == Direction.LEFT && b == Direction.RIGHT) ||
                (a == Direction.RIGHT && b == Direction.LEFT)
+    }
+
+    private fun chooseGestureDirection(dx: Int, dy: Int): Direction? {
+        if (dx == 0 && dy == 0) return null
+        val absDx = abs(dx)
+        val absDy = abs(dy)
+        if (abs(absDx - absDy) <= DIRECTION_AXIS_MARGIN) return currentGestureDirection ?: engine.direction
+        return if (absDx > absDy) {
+            if (dx > 0) Direction.RIGHT else Direction.LEFT
+        } else {
+            if (dy > 0) Direction.DOWN else Direction.UP
+        }
+    }
+
+    private fun updateCalibration(x: Float, y: Float): Boolean {
+        val now = System.currentTimeMillis()
+        if (calibrationStartedAt == 0L) calibrationStartedAt = now
+        if (!calibrationDone) {
+            calibrationMinX = minOf(calibrationMinX, x)
+            calibrationMaxX = maxOf(calibrationMaxX, x)
+            calibrationMinY = minOf(calibrationMinY, y)
+            calibrationMaxY = maxOf(calibrationMaxY, y)
+            if (now - calibrationStartedAt < CALIBRATION_MS) {
+                binding.tvGestureStatus.text = "校准中..."
+                binding.tvGestureStatus.setTextColor(0xFF00D4FF.toInt())
+                return false
+            }
+            calibrationDone = true
+        }
+        return true
+    }
+
+    private fun mapHandToBoard(x: Float, y: Float): Pair<Float, Float> {
+        val rangeX = calibrationMaxX - calibrationMinX
+        val rangeY = calibrationMaxY - calibrationMinY
+        if (rangeX < 0.2f || rangeY < 0.2f) {
+            val margin = 0.15f
+            return Pair(
+                ((x - margin) / (1f - 2f * margin)).coerceIn(0f, 1f),
+                ((y - margin) / (1f - 2f * margin)).coerceIn(0f, 1f)
+            )
+        }
+
+        val paddingX = rangeX * 0.25f
+        val paddingY = rangeY * 0.25f
+        val minX = (calibrationMinX - paddingX).coerceAtLeast(0f)
+        val maxX = (calibrationMaxX + paddingX).coerceAtMost(1f)
+        val minY = (calibrationMinY - paddingY).coerceAtLeast(0f)
+        val maxY = (calibrationMaxY + paddingY).coerceAtMost(1f)
+        return Pair(
+            ((x - minX) / (maxX - minX)).coerceIn(0f, 1f),
+            ((y - minY) / (maxY - minY)).coerceIn(0f, 1f)
+        )
     }
 
     private fun highlightArrow(direction: Direction) {
@@ -232,10 +378,14 @@ class GameActivity : AppCompatActivity() {
     private fun startGame() {
         engine.init()
         startTime = System.currentTimeMillis()
-        if (engine.isGestureMode) gestureGameLoop() else gameLoop()
+        if (isGestureControlActive()) gestureGameLoop() else gameLoop()
     }
 
-    // 手势模式专用游戏循环：手在死区外 → 蛇持续移动，手回中心 → 蛇停止
+    private fun isGestureControlActive(): Boolean {
+        return engine.isGestureMode && gestureControlEnabled
+    }
+
+    // 手势模式专用游戏循环：有稳定目标方向时蛇持续移动
     private val gestureGameRunnable = object : Runnable {
         override fun run() {
             if (engine.gameState == GameState.RUNNING && engine.snake.isNotEmpty()) {
@@ -289,13 +439,13 @@ class GameActivity : AppCompatActivity() {
             }
         })
         binding.gameView.setOnTouchListener { _, event ->
-            if (settings.controlMode == "滑动" && !engine.isGestureMode) gestureDetector.onTouchEvent(event)
+            if (settings.controlMode == "滑动" && !isGestureControlActive()) gestureDetector.onTouchEvent(event)
             true
         }
     }
 
     private fun setupDpad() {
-        if (settings.controlMode == "虚拟方向键" && !engine.isGestureMode) {
+        if ((settings.controlMode == "虚拟方向键" && !engine.isGestureMode) || (engine.isGestureMode && !gestureControlEnabled)) {
             binding.dpadContainer.visibility = View.VISIBLE
         }
         binding.btnUp.setOnClickListener { engine.changeDirection(Direction.UP) }
@@ -305,7 +455,7 @@ class GameActivity : AppCompatActivity() {
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        if (settings.controlMode == "滑动" && !engine.isGestureMode) gestureDetector.onTouchEvent(event)
+        if (settings.controlMode == "滑动" && !isGestureControlActive()) gestureDetector.onTouchEvent(event)
         return super.onTouchEvent(event)
     }
 
@@ -320,8 +470,8 @@ class GameActivity : AppCompatActivity() {
         binding.btnResume.setOnClickListener {
             binding.pausePanel.visibility = View.GONE
             engine.gameState = GameState.RUNNING
-            if (settings.controlMode == "虚拟方向键" && !engine.isGestureMode) binding.dpadContainer.visibility = View.VISIBLE
-            if (engine.isGestureMode) gestureGameLoop() else gameLoop()
+            binding.dpadContainer.visibility = if (shouldShowDpad()) View.VISIBLE else View.GONE
+            if (isGestureControlActive()) gestureGameLoop() else gameLoop()
         }
         binding.btnRestartPause.setOnClickListener { binding.pausePanel.visibility = View.GONE; restartGame() }
         binding.btnHomePause.setOnClickListener { finish() }
@@ -331,21 +481,21 @@ class GameActivity : AppCompatActivity() {
 
     private fun restartGame() {
         handler.removeCallbacksAndMessages(null)
-        handBuffer.clear()
+        resetGestureTracking()
         engine = GameEngine(GameConfig(mode = gameMode, difficulty = settings.difficulty))
         binding.gameView.setup(engine, settings.snakeSkin, settings.foodSkin, settings.showGrid)
-        binding.gameView.clearTarget()
-        currentGestureDirection = null
-        binding.dpadContainer.visibility = if (settings.controlMode == "虚拟方向键" && !engine.isGestureMode) View.VISIBLE else View.GONE
+        binding.dpadContainer.visibility = if (shouldShowDpad()) View.VISIBLE else View.GONE
         startCountdown()
+    }
+
+    private fun shouldShowDpad(): Boolean {
+        return (settings.controlMode == "虚拟方向键" && !engine.isGestureMode) || (engine.isGestureMode && !gestureControlEnabled)
     }
 
     private fun onGameOver() {
         elapsedTime = System.currentTimeMillis() - startTime
         binding.dpadContainer.visibility = View.GONE
-        binding.gameView.clearTarget()
-        currentGestureDirection = null
-        handBuffer.clear()
+        resetGestureTracking()
         val score = engine.score; val len = engine.snake.size; val ate = engine.foodEaten; val sec = (elapsedTime / 1000).toInt()
 
         // 手势模式不记录排行榜，但仍更新成就

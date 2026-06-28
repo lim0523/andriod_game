@@ -25,6 +25,8 @@ class GestureRecognizerHelper(
     data class NormalizedLandmark(val x: Float, val y: Float, val z: Float)
 
     private var recognizer: GestureRecognizer? = null
+    @Volatile
+    var isFrontCamera: Boolean = true
     // 位置映射模式：直接输出手部在画面中的绝对位置
 
     init {
@@ -89,8 +91,8 @@ class GestureRecognizerHelper(
             // 步骤1：旋转到显示方向（手机竖屏时前置摄像头通常需旋转 270°）
             // 修复关键 bug：之前缺少旋转导致坐标系差 90°，手向上被识别为向左
             matrix.postRotate(rotation.toFloat())
-            // 步骤2：前置摄像头镜像翻转（自拍视图）
-            matrix.postScale(-1f, 1f)
+            // 步骤2：前置摄像头镜像翻转（自拍视图），后置摄像头保持真实方向
+            if (isFrontCamera) matrix.postScale(-1f, 1f)
             val processed = android.graphics.Bitmap.createBitmap(
                 bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
             )
