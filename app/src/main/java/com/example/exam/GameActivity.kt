@@ -41,15 +41,17 @@ class GameActivity : AppCompatActivity() {
     private var cameraProvider: ProcessCameraProvider? = null
     private var isFrontCamera = true
     private var gestureControlEnabled = true
-    // 手势目标追随模式：当前方向（null = 停止）
+    // 手势方向保持模式：当前方向（null = 停止）
     private var currentGestureDirection: Direction? = null
     private var lastStableDirection: Direction? = null
     private var lastTrackingTime = 0L
     // 手部位置平滑缓冲：取最近 5 帧平均，减少抖动导致的目标跳变
     private val handBuffer = mutableListOf<Pair<Float, Float>>()
     private val HAND_BUFFER_SIZE = 5
-    private val HAND_LOST_GRACE_MS = 500L
-    private val DIRECTION_AXIS_MARGIN = 1
+    private val HAND_LOST_GRACE_MS = 1200L
+    private val DIRECTION_DEAD_ZONE = 0.16f
+    private val DIRECTION_AXIS_MARGIN = 0.08f
+    private val FRAME_EDGE_WARNING = 0.1f
     private val CALIBRATION_MS = 1200L
     private var calibrationStartedAt = 0L
     private var calibrationDone = false
@@ -236,7 +238,7 @@ class GameActivity : AppCompatActivity() {
 
         if (!updateCalibration(smoothX, smoothY)) return
 
-        // 手在摄像头画面中的绝对位置 → 映射到棋盘坐标
+        // 手在摄像头画面中的绝对位置 → 映射到棋盘坐标，仅用于目标反馈
         val (mappedX, mappedY) = mapHandToBoard(smoothX, smoothY)
         val targetCol = (mappedX * engine.gridSize).toInt().coerceIn(0, engine.gridSize - 1)
         val targetRow = (mappedY * engine.gridSize).toInt().coerceIn(0, engine.gridSize - 1)
@@ -244,32 +246,26 @@ class GameActivity : AppCompatActivity() {
         // 在棋盘上显示目标标记
         binding.gameView.setTarget(targetCol, targetRow)
 
-        // 计算蛇头到目标的方向
-        val head = engine.snake.last()
-        val dx = targetCol - head.x
-        val dy = targetRow - head.y
-
-        // 到达目标 → 停止（精确到达，5帧平滑已防抖）
-        val desiredDir = chooseGestureDirection(dx, dy)
+        val desiredDir = chooseGestureDirection(mappedX, mappedY)
 
         // 防止 180° 掉头：如果期望方向与当前相反，选垂直轴转弯
         currentGestureDirection = if (desiredDir != null && isOppositeDirection(desiredDir, engine.direction)) {
-            when (engine.direction) {
-                Direction.LEFT, Direction.RIGHT -> if (dy >= 0) Direction.DOWN else Direction.UP
-                Direction.UP, Direction.DOWN -> if (dx >= 0) Direction.RIGHT else Direction.LEFT
-            }
+            chooseTurnDirection(mappedX, mappedY)
         } else {
             desiredDir
         }
         lastStableDirection = currentGestureDirection
 
         // 更新状态文字
-        binding.tvGestureStatus.text = if (currentGestureDirection != null) {
-            "追随 → ($targetCol,$targetRow)"
+        val nearEdge = isNearFrameEdge(smoothX, smoothY)
+        binding.tvGestureStatus.text = if (nearEdge) {
+            "手靠近边缘"
+        } else if (currentGestureDirection != null) {
+            "保持 ${directionLabel(currentGestureDirection!!)}"
         } else {
-            "已到达目标 ✓"
+            "保持方向"
         }
-        binding.tvGestureStatus.setTextColor(0xFF00FF88.toInt())
+        binding.tvGestureStatus.setTextColor(if (nearEdge) 0xFFFFD700.toInt() else 0xFF00FF88.toInt())
 
         if (currentGestureDirection != null) {
             highlightArrow(currentGestureDirection!!)
@@ -285,15 +281,44 @@ class GameActivity : AppCompatActivity() {
                (a == Direction.RIGHT && b == Direction.LEFT)
     }
 
-    private fun chooseGestureDirection(dx: Int, dy: Int): Direction? {
-        if (dx == 0 && dy == 0) return null
+    private fun chooseGestureDirection(mappedX: Float, mappedY: Float): Direction? {
+        val dx = mappedX - 0.5f
+        val dy = mappedY - 0.5f
         val absDx = abs(dx)
         val absDy = abs(dy)
-        if (abs(absDx - absDy) <= DIRECTION_AXIS_MARGIN) return currentGestureDirection ?: engine.direction
+        if (absDx < DIRECTION_DEAD_ZONE && absDy < DIRECTION_DEAD_ZONE) {
+            return currentGestureDirection ?: lastStableDirection ?: engine.direction
+        }
+        if (abs(absDx - absDy) <= DIRECTION_AXIS_MARGIN) {
+            return currentGestureDirection ?: lastStableDirection ?: engine.direction
+        }
         return if (absDx > absDy) {
-            if (dx > 0) Direction.RIGHT else Direction.LEFT
+            if (dx > 0f) Direction.RIGHT else Direction.LEFT
         } else {
-            if (dy > 0) Direction.DOWN else Direction.UP
+            if (dy > 0f) Direction.DOWN else Direction.UP
+        }
+    }
+
+    private fun chooseTurnDirection(mappedX: Float, mappedY: Float): Direction {
+        val dx = mappedX - 0.5f
+        val dy = mappedY - 0.5f
+        return when (engine.direction) {
+            Direction.LEFT, Direction.RIGHT -> if (dy >= 0f) Direction.DOWN else Direction.UP
+            Direction.UP, Direction.DOWN -> if (dx >= 0f) Direction.RIGHT else Direction.LEFT
+        }
+    }
+
+    private fun isNearFrameEdge(x: Float, y: Float): Boolean {
+        return x < FRAME_EDGE_WARNING || x > 1f - FRAME_EDGE_WARNING ||
+               y < FRAME_EDGE_WARNING || y > 1f - FRAME_EDGE_WARNING
+    }
+
+    private fun directionLabel(direction: Direction): String {
+        return when (direction) {
+            Direction.UP -> "上"
+            Direction.DOWN -> "下"
+            Direction.LEFT -> "左"
+            Direction.RIGHT -> "右"
         }
     }
 
