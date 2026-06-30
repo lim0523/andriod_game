@@ -36,7 +36,7 @@ class GameEngine(private val config: GameConfig) {
             return (base - speedUp + boost).coerceAtLeast(60L)
         }
 
-    val canWrap: Boolean get() = config.difficulty == Difficulty.EASY || config.mode == GameMode.GESTURE
+    val canWrap: Boolean get() = config.difficulty == Difficulty.EASY
 
     val isGestureMode: Boolean get() = config.mode == GameMode.GESTURE
 
