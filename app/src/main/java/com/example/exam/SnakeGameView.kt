@@ -34,7 +34,14 @@ class SnakeGameView @JvmOverloads constructor(
     private val innerShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF00FF88.toInt(); style = Paint.Style.STROKE; strokeWidth = 2f }
     private val headPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val segmentGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val segmentStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
+    private val segmentHighlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val eyePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF07120D.toInt(); style = Paint.Style.FILL }
     private val foodPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val foodStemPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF7BFF6A.toInt(); style = Paint.Style.FILL }
+    private val foodHighlightPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFF9AB2.toInt(); style = Paint.Style.FILL }
+    private val foodGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val obstaclePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF4A5568.toInt() }
     private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
 
@@ -110,18 +117,49 @@ class SnakeGameView @JvmOverloads constructor(
             val rect = cellRect(p, cs, ox, oy)
             val ratio = if (snake.size > 1) i.toFloat() / (snake.size - 1) else 0f
             if (i == snake.lastIndex) {
-                headPaint.color = skin.headColor
-                canvas.drawRoundRect(rect, cs * 0.3f, cs * 0.3f, headPaint)
-                glowPaint.color = skin.headColor and 0x44FFFFFF.toInt()
-                canvas.drawRoundRect(RectF(rect.left - cs * 0.18f, rect.top - cs * 0.18f, rect.right + cs * 0.18f, rect.bottom + cs * 0.18f), cs * 0.4f, cs * 0.4f, glowPaint)
+                drawSnakeSegment(canvas, rect, cs, skin.headColor, true)
             } else {
-                bodyPaint.color = if (skin == SnakeSkin.RAINBOW) {
+                val bodyColor = if (skin == SnakeSkin.RAINBOW) {
                     Color.HSVToColor(floatArrayOf(((ratio * 360 + System.currentTimeMillis() * 0.1) % 360).toFloat(), 1f, 1f))
                 } else lerpColor(skin.bodyStartColor, skin.bodyEndColor, ratio)
-                val s = cs * 0.01f
-                canvas.drawRoundRect(RectF(rect.left + s, rect.top + s, rect.right - s, rect.bottom - s), cs * 0.25f, cs * 0.25f, bodyPaint)
+                drawSnakeSegment(canvas, rect, cs, bodyColor, false)
             }
         }
+    }
+
+    private fun drawSnakeSegment(canvas: Canvas, rect: RectF, cs: Float, color: Int, isHead: Boolean) {
+        val gap = cs * if (isHead) 0.08f else 0.12f
+        val segment = RectF(rect.left + gap, rect.top + gap, rect.right - gap, rect.bottom - gap)
+        val radius = cs * 0.16f
+
+        segmentGlowPaint.color = withAlpha(color, if (isHead) 110 else 80)
+        val glow = RectF(segment.left - cs * 0.16f, segment.top - cs * 0.16f, segment.right + cs * 0.16f, segment.bottom + cs * 0.16f)
+        canvas.drawRoundRect(glow, cs * 0.22f, cs * 0.22f, segmentGlowPaint)
+
+        bodyPaint.color = color
+        canvas.drawRoundRect(segment, radius, radius, bodyPaint)
+
+        segmentStrokePaint.color = withAlpha(0xFFFFFFFF.toInt(), if (isHead) 130 else 80)
+        segmentStrokePaint.strokeWidth = maxOf(1f, cs * 0.06f)
+        canvas.drawRoundRect(segment, radius, radius, segmentStrokePaint)
+
+        segmentHighlightPaint.color = withAlpha(0xFFFFFFFF.toInt(), if (isHead) 95 else 55)
+        val highlight = RectF(
+            segment.left + cs * 0.14f,
+            segment.top + cs * 0.12f,
+            segment.right - cs * 0.18f,
+            segment.top + cs * 0.24f
+        )
+        canvas.drawRoundRect(highlight, cs * 0.06f, cs * 0.06f, segmentHighlightPaint)
+
+        if (isHead) drawSnakeEyes(canvas, segment, cs)
+    }
+
+    private fun drawSnakeEyes(canvas: Canvas, segment: RectF, cs: Float) {
+        val eyeR = cs * 0.055f
+        val y = segment.top + segment.height() * 0.36f
+        canvas.drawCircle(segment.left + segment.width() * 0.34f, y, eyeR, eyePaint)
+        canvas.drawCircle(segment.left + segment.width() * 0.66f, y, eyeR, eyePaint)
     }
 
     private fun drawFood(canvas: Canvas, pos: Point, cs: Float, ox: Float, oy: Float) {
@@ -130,9 +168,7 @@ class SnakeGameView @JvmOverloads constructor(
         foodPaint.color = foodSkin.color
         when (foodSkin) {
             FoodSkin.APPLE -> {
-                canvas.drawCircle(cx, cy, r, foodPaint)
-                glowPaint.color = foodSkin.color and 0x33FFFFFF.toInt()
-                canvas.drawCircle(cx, cy, r * 1.6f, glowPaint)
+                drawPixelApple(canvas, cx, cy, cs)
             }
             FoodSkin.STAR -> {
                 val path = Path()
@@ -157,6 +193,40 @@ class SnakeGameView @JvmOverloads constructor(
         }
     }
 
+    private fun drawPixelApple(canvas: Canvas, cx: Float, cy: Float, cs: Float) {
+        val unit = cs * 0.11f
+        foodGlowPaint.color = withAlpha(foodSkin.color, 95)
+        canvas.drawCircle(cx, cy + unit * 0.35f, cs * 0.62f, foodGlowPaint)
+
+        foodPaint.color = foodSkin.color
+        val apple = Path().apply {
+            moveTo(cx - unit * 2f, cy - unit * 1.1f)
+            lineTo(cx - unit * 0.75f, cy - unit * 2.2f)
+            lineTo(cx + unit * 0.75f, cy - unit * 2.2f)
+            lineTo(cx + unit * 2f, cy - unit * 1.1f)
+            lineTo(cx + unit * 2.25f, cy + unit * 1.2f)
+            lineTo(cx + unit * 1.25f, cy + unit * 2.45f)
+            lineTo(cx - unit * 1.25f, cy + unit * 2.45f)
+            lineTo(cx - unit * 2.25f, cy + unit * 1.2f)
+            close()
+        }
+        canvas.drawPath(apple, foodPaint)
+
+        foodHighlightPaint.alpha = 210
+        canvas.drawRect(cx - unit * 1.15f, cy - unit * 0.85f, cx - unit * 0.25f, cy + unit * 0.05f, foodHighlightPaint)
+
+        foodStemPaint.color = 0xFF8B5A2B.toInt()
+        canvas.drawRect(cx - unit * 0.2f, cy - unit * 2.95f, cx + unit * 0.25f, cy - unit * 1.95f, foodStemPaint)
+        foodStemPaint.color = 0xFF7BFF6A.toInt()
+        val leaf = Path().apply {
+            moveTo(cx + unit * 0.2f, cy - unit * 2.55f)
+            lineTo(cx + unit * 1.45f, cy - unit * 2.8f)
+            lineTo(cx + unit * 0.85f, cy - unit * 1.85f)
+            close()
+        }
+        canvas.drawPath(leaf, foodStemPaint)
+    }
+
     private fun cellRect(pos: Point, cs: Float, ox: Float, oy: Float): RectF {
         val p = cs * 0.01f
         return RectF(ox + pos.x * cs + p, oy + pos.y * cs + p, ox + (pos.x + 1) * cs - p, oy + (pos.y + 1) * cs - p)
@@ -168,5 +238,9 @@ class SnakeGameView @JvmOverloads constructor(
             (Color.green(start) + (Color.green(end) - Color.green(start)) * ratio).toInt(),
             (Color.blue(start) + (Color.blue(end) - Color.blue(start)) * ratio).toInt()
         )
+    }
+
+    private fun withAlpha(color: Int, alpha: Int): Int {
+        return Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color))
     }
 }
