@@ -159,11 +159,19 @@ class SnakeGameView @JvmOverloads constructor(
         bodyPaint.color = color
         canvas.drawRoundRect(segment, radius, radius, bodyPaint)
 
-        segmentStrokePaint.color = withAlpha(0xFFFFFFFF.toInt(), if (isHead) 130 else 80)
+        segmentStrokePaint.color = if (skin == SnakeSkin.GEM_PURPLE) {
+            withAlpha(0xFF00D4FF.toInt(), if (isHead) 180 else 130)
+        } else {
+            withAlpha(0xFFFFFFFF.toInt(), if (isHead) 130 else 80)
+        }
         segmentStrokePaint.strokeWidth = maxOf(1f, cs * 0.06f)
         canvas.drawRoundRect(segment, radius, radius, segmentStrokePaint)
 
-        segmentHighlightPaint.color = withAlpha(0xFFFFFFFF.toInt(), if (isHead) 95 else 55)
+        segmentHighlightPaint.color = if (skin == SnakeSkin.GEM_PURPLE) {
+            withAlpha(0xFFFFD6FF.toInt(), if (isHead) 130 else 80)
+        } else {
+            withAlpha(0xFFFFFFFF.toInt(), if (isHead) 95 else 55)
+        }
         val highlight = RectF(
             segment.left + cs * 0.14f,
             segment.top + cs * 0.12f,

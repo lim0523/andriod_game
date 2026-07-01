@@ -1,6 +1,7 @@
 package com.example.exam
 
 import android.os.Bundle
+import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -67,6 +68,7 @@ class SkinActivity : AppCompatActivity() {
         return when (item) {
             is SnakeSkin -> when (item) {
                 SnakeSkin.CLASSIC_GREEN -> "默认解锁"
+                SnakeSkin.GEM_PURPLE -> "默认解锁"
                 SnakeSkin.NEON_BLUE -> "经典模式单局100分解锁"
                 SnakeSkin.FLAME_RED -> "挑战模式单局200分解锁"
                 SnakeSkin.RAINBOW -> "累计游戏10局解锁"
@@ -122,13 +124,26 @@ class SkinActivity : AppCompatActivity() {
                 is BoardSkin -> item.name
                 else -> ""
             }
-            val color = when (item) {
-                is SnakeSkin -> item.headColor
-                is FoodSkin -> item.color
-                else -> 0xFF1A1A2E.toInt()
-            }
             holder.name.text = nm
-            holder.preview.setBackgroundColor(color)
+            holder.preview.background = when (item) {
+                is SnakeSkin -> GradientDrawable(
+                    GradientDrawable.Orientation.TL_BR,
+                    intArrayOf(item.bodyStartColor, item.headColor, item.bodyEndColor)
+                ).apply {
+                    cornerRadius = 10f
+                    setStroke(2, if (item == SnakeSkin.GEM_PURPLE) 0xFF00D4FF.toInt() else 0x55FFFFFF)
+                }
+                is FoodSkin -> GradientDrawable().apply {
+                    shape = GradientDrawable.OVAL
+                    setColor(item.color)
+                    setStroke(2, 0x55FFFFFF)
+                }
+                else -> GradientDrawable().apply {
+                    setColor(0xFF1A1A2E.toInt())
+                    cornerRadius = 10f
+                    setStroke(2, 0x3300D4FF)
+                }
+            }
             val ok = key in unlocked
             val sel = key == selected
             holder.status.text = when {

@@ -55,7 +55,8 @@ class GameSettings(context: Context) {
         set(v) = prefs.edit().putInt("challenge_best", v).apply()
 
     var unlockedSkins: Set<String>
-        get() = prefs.getStringSet("unlocked_skins", setOf("CLASSIC_GREEN")) ?: setOf("CLASSIC_GREEN")
+        get() = (prefs.getStringSet("unlocked_skins", setOf("CLASSIC_GREEN", "GEM_PURPLE"))
+            ?: setOf("CLASSIC_GREEN", "GEM_PURPLE")) + "GEM_PURPLE"
         set(v) = prefs.edit().putStringSet("unlocked_skins", v).apply()
 
     var unlockedFoods: Set<String>
