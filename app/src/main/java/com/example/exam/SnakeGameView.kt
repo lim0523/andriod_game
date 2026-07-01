@@ -26,12 +26,14 @@ class SnakeGameView @JvmOverloads constructor(
         color = 0xFFFFD700.toInt()
         style = Paint.Style.FILL
     }
-    private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF0D0D1A.toInt() }
-    private val boardBgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF080814.toInt() }
-    private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF3A6A5C.toInt(); strokeWidth = 3f }
-    private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF00FF88.toInt(); style = Paint.Style.STROKE; strokeWidth = 6f }
-    private val borderGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF00FF88.toInt(); style = Paint.Style.STROKE; strokeWidth = 14f }
-    private val innerShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF00FF88.toInt(); style = Paint.Style.STROKE; strokeWidth = 2f }
+    private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF080812.toInt() }
+    private val boardBgPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val boardVignettePaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF16352F.toInt(); strokeWidth = 1.25f }
+    private val majorGridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF1F5A4C.toInt(); strokeWidth = 2f }
+    private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF00FF88.toInt(); style = Paint.Style.STROKE; strokeWidth = 4f }
+    private val borderGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF00FF88.toInt(); style = Paint.Style.STROKE; strokeWidth = 18f }
+    private val innerShadowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF00D4FF.toInt(); style = Paint.Style.STROKE; strokeWidth = 1.5f }
     private val headPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val segmentGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
@@ -69,10 +71,26 @@ class SnakeGameView @JvmOverloads constructor(
 
         // 外部背景
         canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), bgPaint)
-        // 棋盘背景（更暗，与外部形成层次）
+        boardBgPaint.shader = LinearGradient(
+            ox, oy, ox + size, oy + size,
+            0xFF071018.toInt(),
+            0xFF10081E.toInt(),
+            Shader.TileMode.CLAMP
+        )
+        boardVignettePaint.shader = RadialGradient(
+            ox + size * 0.5f,
+            oy + size * 0.45f,
+            size * 0.72f,
+            intArrayOf(0x2217FFE2, 0x00000000, 0xAA03030A.toInt()),
+            floatArrayOf(0f, 0.58f, 1f),
+            Shader.TileMode.CLAMP
+        )
+
+        // 棋盘背景（暗色渐变 + 边缘压暗，与霓虹元素拉开层级）
         canvas.drawRect(ox, oy, ox + size, oy + size, boardBgPaint)
+        canvas.drawRect(ox, oy, ox + size, oy + size, boardVignettePaint)
         // 棋盘外发光（宽柔光层）
-        borderGlowPaint.alpha = 40
+        borderGlowPaint.alpha = 32
         canvas.drawRect(ox - 4f, oy - 4f, ox + size + 4f, oy + size + 4f, borderGlowPaint)
         // 棋盘边框（霓虹绿粗线）
         borderPaint.alpha = 220
@@ -82,10 +100,12 @@ class SnakeGameView @JvmOverloads constructor(
         canvas.drawRect(ox + 3f, oy + 3f, ox + size - 3f, oy + size - 3f, innerShadowPaint)
 
         if (showGrid) {
-            gridPaint.alpha = 180
+            gridPaint.alpha = 120
+            majorGridPaint.alpha = 95
             for (i in 0..eng.gridSize) {
-                canvas.drawLine(ox + i * cs, oy, ox + i * cs, oy + size, gridPaint)
-                canvas.drawLine(ox, oy + i * cs, ox + size, oy + i * cs, gridPaint)
+                val paint = if (i % 5 == 0) majorGridPaint else gridPaint
+                canvas.drawLine(ox + i * cs, oy, ox + i * cs, oy + size, paint)
+                canvas.drawLine(ox, oy + i * cs, ox + size, oy + i * cs, paint)
             }
         }
 
